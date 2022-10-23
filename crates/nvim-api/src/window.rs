@@ -1,22 +1,16 @@
 use std::fmt;
-use std::result::Result as StdResult;
 
 use luajit_bindings::{self as lua, Poppable, Pushable};
 use nvim_types::{
-    self as nvim,
-    conversion::{self, FromObject, ToObject},
-    Array,
-    Function,
-    Integer,
-    Object,
+    self as nvim, Array, Function, Integer, Object,
     WinHandle,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::choose;
 use crate::ffi::window::*;
 use crate::Result;
 use crate::LUA_INTERNAL_CALL;
+use crate::{choose, Error};
 use crate::{Buffer, TabPage};
 
 /// A wrapper around a Neovim window handle.
@@ -35,9 +29,18 @@ impl fmt::Display for Window {
     }
 }
 
-impl<H: Into<WinHandle>> From<H> for Window {
-    fn from(handle: H) -> Self {
-        Self(handle.into())
+impl From<WinHandle> for Window {
+    fn from(handle: WinHandle) -> Self {
+        Self(handle)
+    }
+}
+
+impl TryFrom<Object> for Window {
+    type Error = Error;
+
+    fn try_from(value: Object) -> Result<Self> {
+        let handle: WinHandle = value.try_into()?;
+        Ok(handle.into())
     }
 }
 
@@ -50,12 +53,6 @@ impl From<Window> for Object {
 impl From<&Window> for Object {
     fn from(win: &Window) -> Self {
         win.0.into()
-    }
-}
-
-impl FromObject for Window {
-    fn from_object(obj: Object) -> StdResult<Self, conversion::Error> {
-        Ok(WinHandle::from_object(obj)?.into())
     }
 }
 
@@ -91,7 +88,8 @@ impl Window {
     pub fn call<R, F>(&self, fun: F) -> Result<R>
     where
         F: FnOnce(()) -> Result<R> + 'static,
-        R: Pushable + FromObject,
+        R: Pushable + TryFrom<Object>,
+        Error: From<R::Error>,
     {
         let fun = Function::from_fn_once(fun);
         let mut err = nvim::Error::new();
@@ -99,7 +97,7 @@ impl Window {
 
         choose!(err, {
             fun.remove_from_lua_registry();
-            Ok(R::from_object(obj)?)
+            Ok(R::try_from(obj)?)
         })
     }
 
@@ -140,8 +138,8 @@ impl Window {
         let arr = unsafe { nvim_win_get_cursor(self.0, &mut err) };
         choose!(err, {
             let mut iter = arr.into_iter();
-            let line = usize::from_object(iter.next().unwrap())?;
-            let col = usize::from_object(iter.next().unwrap())?;
+            let line = usize::try_from(iter.next().unwrap())?;
+            let col = usize::try_from(iter.next().unwrap())?;
             Ok((line, col))
         })
     }
@@ -169,14 +167,15 @@ impl Window {
     /// Gets a window option value.
     pub fn get_option<Opt>(&self, name: &str) -> Result<Opt>
     where
-        Opt: FromObject,
+        Opt: TryFrom<Object>,
+        Error: From<Opt::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
         let obj = unsafe {
             nvim_win_get_option(self.0, name.non_owning(), &mut err)
         };
-        choose!(err, Ok(Opt::from_object(obj)?))
+        choose!(err, Ok(Opt::try_from(obj)?))
     }
 
     /// Binding to [`nvim_win_get_position`](https://neovim.io/doc/user/api.html#nvim_win_get_position()).
@@ -187,8 +186,8 @@ impl Window {
         let arr = unsafe { nvim_win_get_position(self.0, &mut err) };
         choose!(err, {
             let mut iter = arr.into_iter();
-            let line = usize::from_object(iter.next().unwrap())?;
-            let col = usize::from_object(iter.next().unwrap())?;
+            let line = usize::try_from(iter.next().unwrap())?;
+            let col = usize::try_from(iter.next().unwrap())?;
             Ok((line, col))
         })
     }
@@ -207,13 +206,14 @@ impl Window {
     /// Gets a window-scoped (`w:`) variable.
     pub fn get_var<Var>(&self, name: &str) -> Result<Var>
     where
-        Var: FromObject,
+        Var: TryFrom<Object>,
+        Error: From<Var::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
         let obj =
             unsafe { nvim_win_get_var(self.0, name.non_owning(), &mut err) };
-        choose!(err, Ok(Var::from_object(obj)?))
+        choose!(err, Ok(Var::try_from(obj)?))
     }
 
     /// Binding to [`nvim_win_get_width`](https://neovim.io/doc/user/api.html#nvim_win_get_width()).
@@ -276,7 +276,8 @@ impl Window {
     /// (only works if there's a global fallback).
     pub fn set_option<Opt>(&mut self, name: &str, value: Opt) -> Result<()>
     where
-        Opt: ToObject,
+        Opt: TryInto<Object>,
+        Error: From<Opt::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
@@ -285,7 +286,7 @@ impl Window {
                 LUA_INTERNAL_CALL,
                 self.0,
                 name.non_owning(),
-                value.to_object()?.non_owning(),
+                value.try_into()?.non_owning(),
                 &mut err,
             )
         };
@@ -297,7 +298,8 @@ impl Window {
     /// Sets a window-scoped (`w:`) variable.
     pub fn set_var<Var>(&mut self, name: &str, value: Var) -> Result<()>
     where
-        Var: ToObject,
+        Var: TryInto<Object>,
+        Error: From<Var::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
@@ -305,7 +307,7 @@ impl Window {
             nvim_win_set_var(
                 self.0,
                 name.non_owning(),
-                value.to_object()?.non_owning(),
+                value.try_into()?.non_owning(),
                 &mut err,
             )
         };

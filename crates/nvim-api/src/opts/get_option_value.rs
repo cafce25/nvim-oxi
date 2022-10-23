@@ -1,5 +1,5 @@
 use derive_builder::Builder;
-use nvim_types::{self as nvim, conversion::FromObject, NonOwning, Object};
+use nvim_types::{self as nvim, NonOwning, Object};
 use serde::Serialize;
 
 /// Options passed to
@@ -54,7 +54,7 @@ pub enum OptionScope {
 
 impl From<OptionScope> for nvim::String {
     fn from(ctx: OptionScope) -> Self {
-        nvim::String::from_object(
+        nvim::String::try_from(
             ctx.serialize(nvim::serde::Serializer::new())
                 .expect("`OptionScope` is serializable"),
         )

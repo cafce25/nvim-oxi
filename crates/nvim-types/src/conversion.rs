@@ -5,14 +5,7 @@ use std::collections::HashMap;
 use thiserror::Error as ThisError;
 
 use crate::{
-    Array,
-    Boolean,
-    Dictionary,
-    Float,
-    Function,
-    Integer,
-    Object,
-    ObjectKind,
+    Array, Boolean, Dictionary, Float, Function, Integer, Object, ObjectKind,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq, ThisError)]
@@ -31,24 +24,9 @@ pub enum Error {
     Serde(#[from] crate::serde::Error),
 }
 
-/// Trait implemented for types can be obtained from an [`Object`].
-pub trait FromObject: Sized {
-    fn from_object(object: Object) -> Result<Self, Error>;
-}
-
-/// Trait implemented for types can be converted into an [`Object`].
-pub trait ToObject {
-    fn to_object(self) -> Result<Object, Error>;
-}
-
-impl FromObject for Object {
-    fn from_object(obj: Object) -> Result<Self, Error> {
-        Ok(obj)
-    }
-}
-
-impl FromObject for () {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for () {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Nil => Ok(()),
 
@@ -60,8 +38,9 @@ impl FromObject for () {
     }
 }
 
-impl FromObject for Boolean {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for Boolean {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Boolean => Ok(unsafe { obj.as_boolean_unchecked() }),
 
@@ -73,8 +52,9 @@ impl FromObject for Boolean {
     }
 }
 
-impl FromObject for Integer {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for Integer {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Integer
             | ObjectKind::Buffer
@@ -89,8 +69,9 @@ impl FromObject for Integer {
     }
 }
 
-impl FromObject for Float {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for Float {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Float => Ok(unsafe { obj.as_float_unchecked() }),
 
@@ -102,8 +83,9 @@ impl FromObject for Float {
     }
 }
 
-impl FromObject for crate::String {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for crate::String {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::String => Ok(unsafe { obj.into_string_unchecked() }),
 
@@ -115,8 +97,9 @@ impl FromObject for crate::String {
     }
 }
 
-impl FromObject for Array {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for Array {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Array => Ok(unsafe { obj.into_array_unchecked() }),
 
@@ -128,8 +111,9 @@ impl FromObject for Array {
     }
 }
 
-impl FromObject for Dictionary {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl TryFrom<Object> for Dictionary {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::Dictionary => Ok(unsafe { obj.into_dict_unchecked() }),
 
@@ -141,8 +125,9 @@ impl FromObject for Dictionary {
     }
 }
 
-impl<A, R> FromObject for Function<A, R> {
-    fn from_object(obj: Object) -> Result<Self, Error> {
+impl<A, R> TryFrom<Object> for Function<A, R> {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
         match obj.kind() {
             ObjectKind::LuaRef => {
                 Ok(Self::from_ref(unsafe { obj.as_luaref_unchecked() }))
@@ -156,12 +141,13 @@ impl<A, R> FromObject for Function<A, R> {
     }
 }
 
-/// Implements `FromObject` for a type that implements `From<Integer>`.
+/// Implements `TryFrom<Object>` for a type that implements `From<Integer>`.
 macro_rules! from_int {
     ($integer:ty) => {
-        impl FromObject for $integer {
-            fn from_object(obj: Object) -> Result<Self, Error> {
-                Integer::from_object(obj).map(Into::into)
+        impl TryFrom<Object> for $integer {
+            type Error = Error;
+            fn try_from(obj: Object) -> Result<Self, Error> {
+                Integer::try_from(obj).map(Into::into)
             }
         }
     };
@@ -169,12 +155,13 @@ macro_rules! from_int {
 
 from_int!(i128);
 
-/// Implements `FromObject` for a type that implements `TryFrom<Integer>`.
+/// Implements `TryFrom<Object>` for a type that implements `TryFrom<Integer>`.
 macro_rules! try_from_int {
     ($integer:ty) => {
-        impl FromObject for $integer {
-            fn from_object(obj: Object) -> Result<Self, Error> {
-                Integer::from_object(obj).and_then(|n| Ok(n.try_into()?))
+        impl TryFrom<Object> for $integer {
+            type Error = Error;
+            fn try_from(obj: Object) -> Result<Self, Error> {
+                Integer::try_from(obj).and_then(|n| Ok(n.try_into()?))
             }
         }
     };
@@ -191,55 +178,28 @@ try_from_int!(u128);
 try_from_int!(isize);
 try_from_int!(usize);
 
-impl FromObject for f32 {
-    fn from_object(obj: Object) -> Result<Self, Error> {
-        Ok(Float::from_object(obj)? as _)
+impl TryFrom<Object> for f32 {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
+        Ok(Float::try_from(obj)? as _)
     }
 }
 
-impl FromObject for String {
-    fn from_object(obj: Object) -> Result<Self, Error> {
-        crate::String::from_object(obj)
+impl TryFrom<Object> for String {
+    type Error = Error;
+    fn try_from(obj: Object) -> Result<Self, Error> {
+        crate::String::try_from(obj)
             .and_then(|nvim_str| Ok(nvim_str.into_string()?))
-    }
-}
-
-impl<T> FromObject for Option<T>
-where
-    T: FromObject,
-{
-    fn from_object(obj: Object) -> Result<Self, Error> {
-        (!obj.is_nil()).then(|| T::from_object(obj)).transpose()
-    }
-}
-
-impl<T> FromObject for Vec<T>
-where
-    T: FromObject,
-{
-    fn from_object(obj: Object) -> Result<Self, Error> {
-        Array::from_object(obj)?
-            .into_iter()
-            .map(FromObject::from_object)
-            .collect()
-    }
-}
-
-impl<T> ToObject for T
-where
-    T: Into<Object>,
-{
-    fn to_object(self) -> Result<Object, Error> {
-        Ok(self.into())
     }
 }
 
 /// Implements `ToObject` for "big integer" types.
 macro_rules! bigint_to_obj {
     ($type:ty) => {
-        impl ToObject for $type {
-            fn to_object(self) -> Result<Object, Error> {
-                Ok(i64::try_from(self)?.into())
+        impl TryFrom<$type> for Object {
+            type Error = Error;
+            fn try_from(i: $type) -> Result<Object, Error> {
+                Ok(i64::try_from(i)?.into())
             }
         }
     };
@@ -251,27 +211,33 @@ bigint_to_obj!(usize);
 bigint_to_obj!(i128);
 bigint_to_obj!(u128);
 
-impl<T> ToObject for Vec<T>
+impl<T> TryFrom<Vec<T>> for Object
 where
-    T: ToObject,
+    T: TryInto<Object>,
+    Error: From<T::Error>,
 {
-    fn to_object(self) -> Result<Object, Error> {
-        Ok(self
+    type Error = Error;
+    fn try_from(items: Vec<T>) -> Result<Object, Error> {
+        Ok(items
             .into_iter()
-            .map(ToObject::to_object)
+            .map(TryInto::try_into)
+            .map(|x| x.map_err(Into::into))
             .collect::<Result<Array, Error>>()?
             .into())
     }
 }
 
-impl<K, V> ToObject for HashMap<K, V>
+impl<K, V> TryFrom<HashMap<K, V>> for Object
+// impl<K, V> ToObject for HashMap<K, V>
 where
     K: Into<crate::String>,
-    V: ToObject,
+    V: TryInto<Object>,
+    Error: From<V::Error>,
 {
-    fn to_object(self) -> Result<Object, Error> {
-        self.into_iter()
-            .map(|(k, v)| Ok((k, v.to_object()?)))
+    type Error = Error;
+    fn try_from(map: HashMap<K, V>) -> Result<Object, Error> {
+        map.into_iter()
+            .map(|(k, v)| Ok((k, v.try_into()?)))
             .collect::<Result<Dictionary, Error>>()
             .map(Into::into)
     }

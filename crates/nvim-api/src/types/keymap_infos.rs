@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, FromObject},
+    conversion,
     serde::Deserializer,
     Function,
     Object,
@@ -59,8 +59,9 @@ pub struct KeymapInfos {
     pub silent: bool,
 }
 
-impl FromObject for KeymapInfos {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for KeymapInfos {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }

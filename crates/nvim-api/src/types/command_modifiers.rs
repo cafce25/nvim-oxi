@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, ToObject},
+    conversion,
     serde::Serializer,
     Object,
 };
@@ -34,8 +34,9 @@ pub struct CommandModifiers {
     pub vertical: bool,
 }
 
-impl ToObject for CommandModifiers {
-    fn to_object(self) -> Result<Object, conversion::Error> {
-        self.serialize(Serializer::new()).map_err(Into::into)
+impl TryFrom<CommandModifiers> for Object {
+    type Error = conversion::Error;
+    fn try_from(modifiers: CommandModifiers) -> Result<Object, Self::Error> {
+        modifiers.serialize(Serializer::new()).map_err(Into::into)
     }
 }

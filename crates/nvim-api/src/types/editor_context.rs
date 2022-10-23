@@ -1,11 +1,6 @@
 use derive_builder::Builder;
 use nvim_types::{
-    self as nvim,
-    conversion::{self, FromObject},
-    serde::Deserializer,
-    Array,
-    Dictionary,
-    Object,
+    self as nvim, conversion, serde::Deserializer, Array, Dictionary, Object,
 };
 use serde::Deserialize;
 
@@ -88,8 +83,9 @@ impl From<EditorContext> for Dictionary {
     }
 }
 
-impl FromObject for EditorContext {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for EditorContext {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }

@@ -5,13 +5,7 @@ use std::result::Result as StdResult;
 
 use luajit_bindings::{self as lua, Poppable, Pushable};
 use nvim_types::{
-    self as nvim,
-    conversion::{self, FromObject, ToObject},
-    Array,
-    BufHandle,
-    Dictionary,
-    Function,
-    Integer,
+    self as nvim, conversion, Array, BufHandle, Dictionary, Function, Integer,
     Object,
 };
 use serde::{Deserialize, Serialize};
@@ -42,10 +36,10 @@ impl fmt::Display for Buffer {
     }
 }
 
-impl<H: Into<BufHandle>> From<H> for Buffer {
+impl From<BufHandle> for Buffer {
     #[inline(always)]
-    fn from(handle: H) -> Self {
-        Self(handle.into())
+    fn from(handle: BufHandle) -> Self {
+        Self(handle)
     }
 }
 
@@ -63,10 +57,11 @@ impl From<&Buffer> for Object {
     }
 }
 
-impl FromObject for Buffer {
+impl TryFrom<Object> for Buffer {
+    type Error = conversion::Error;
     #[inline(always)]
-    fn from_object(obj: Object) -> StdResult<Self, conversion::Error> {
-        Ok(BufHandle::from_object(obj)?.into())
+    fn try_from(obj: Object) -> StdResult<Self, Self::Error> {
+        Ok(BufHandle::try_from(obj)?.into())
     }
 }
 
@@ -128,7 +123,8 @@ impl Buffer {
     pub fn call<F, R>(&self, fun: F) -> Result<R>
     where
         F: FnOnce(()) -> Result<R> + 'static,
-        R: Pushable + FromObject,
+        R: Pushable + TryFrom<Object>,
+        Error: From<R::Error>,
     {
         let fun = Function::from_fn_once(fun);
         let mut err = nvim::Error::new();
@@ -136,7 +132,7 @@ impl Buffer {
 
         choose!(err, {
             fun.remove_from_lua_registry();
-            Ok(R::from_object(obj)?)
+            Ok(R::try_from(obj)?)
         })
     }
 
@@ -262,7 +258,7 @@ impl Buffer {
             err,
             Ok({
                 cmds.into_iter()
-                    .map(|(_, cmd)| CommandInfos::from_object(cmd).unwrap())
+                    .map(|(_, cmd)| CommandInfos::try_from(cmd).unwrap())
             })
         )
     }
@@ -286,7 +282,7 @@ impl Buffer {
             err,
             Ok({
                 maps.into_iter()
-                    .map(|obj| KeymapInfos::from_object(obj).unwrap())
+                    .map(|obj| KeymapInfos::try_from(obj).unwrap())
             })
         )
     }
@@ -322,7 +318,7 @@ impl Buffer {
             Ok({
                 lines
                     .into_iter()
-                    .map(|line| nvim::String::from_object(line).unwrap())
+                    .map(|line| nvim::String::try_from(line).unwrap())
             })
         )
     }
@@ -337,7 +333,7 @@ impl Buffer {
         let mark =
             unsafe { nvim_buf_get_mark(self.0, name.non_owning(), &mut err) };
         choose!(err, {
-            let mut iter = mark.into_iter().map(usize::from_object);
+            let mut iter = mark.into_iter().map(usize::try_from);
             let row = iter.next().expect("row is present")?;
             let col = iter.next().expect("col is present")?;
             Ok((row, col))
@@ -368,14 +364,15 @@ impl Buffer {
     /// Gets a buffer option value.
     pub fn get_option<Opt>(&self, name: &str) -> Result<Opt>
     where
-        Opt: FromObject,
+        Opt: TryFrom<Object>,
+        Error: From<Opt::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
         let obj = unsafe {
             nvim_buf_get_option(self.0, name.non_owning(), &mut err)
         };
-        choose!(err, Ok(Opt::from_object(obj)?))
+        choose!(err, Ok(Opt::try_from(obj)?))
     }
 
     /// Binding to [`nvim_buf_get_text`](https://neovim.io/doc/user/api.html#nvim_buf_get_text()).
@@ -415,7 +412,7 @@ impl Buffer {
             Ok({
                 lines
                     .into_iter()
-                    .map(|line| nvim::String::from_object(line).unwrap())
+                    .map(|line| nvim::String::try_from(line).unwrap())
             })
         )
     }
@@ -425,13 +422,14 @@ impl Buffer {
     /// Gets a buffer-scoped (`b:`) variable.
     pub fn get_var<Var>(&self, name: &str) -> Result<Var>
     where
-        Var: FromObject,
+        Var: TryFrom<Object>,
+        Error: From<Var::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
         let obj =
             unsafe { nvim_buf_get_var(self.0, name.non_owning(), &mut err) };
-        choose!(err, Ok(Var::from_object(obj)?))
+        choose!(err, Ok(Var::try_from(obj)?))
     }
 
     /// Binding to [`nvim_buf_is_loaded`](https://neovim.io/doc/user/api.html#nvim_buf_is_loaded()).
@@ -570,7 +568,8 @@ impl Buffer {
     /// (only works if there's a global fallback).
     pub fn set_option<V>(&mut self, name: &str, value: V) -> Result<()>
     where
-        V: ToObject,
+        V: TryInto<Object>,
+        Error: From<V::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
@@ -579,7 +578,7 @@ impl Buffer {
                 LUA_INTERNAL_CALL,
                 self.0,
                 name.non_owning(),
-                value.to_object()?.non_owning(),
+                value.try_into()?.non_owning(),
                 &mut err,
             )
         };
@@ -630,7 +629,8 @@ impl Buffer {
     /// [1]: https://neovim.io/doc/user/api.html#nvim_buf_set_var()
     pub fn set_var<V>(&mut self, name: &str, value: V) -> Result<()>
     where
-        V: ToObject,
+        V: TryInto<Object>,
+        Error: From<V::Error>,
     {
         let mut err = nvim::Error::new();
         let name = nvim::String::from(name);
@@ -638,7 +638,7 @@ impl Buffer {
             nvim_buf_set_var(
                 self.0,
                 name.non_owning(),
-                value.to_object()?.non_owning(),
+                value.try_into()?.non_owning(),
                 &mut err,
             )
         };

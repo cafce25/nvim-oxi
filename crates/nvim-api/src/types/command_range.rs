@@ -1,7 +1,7 @@
 use std::fmt;
 
 use nvim_types::{
-    conversion::{self, ToObject},
+    conversion,
     serde::Serializer,
     Object,
 };
@@ -22,9 +22,10 @@ pub enum CommandRange {
     Count(u32),
 }
 
-impl ToObject for CommandRange {
-    fn to_object(self) -> Result<Object, conversion::Error> {
-        self.serialize(Serializer::new()).map_err(Into::into)
+impl TryFrom<CommandRange> for Object {
+    type Error = conversion::Error;
+    fn try_from(range: CommandRange) -> Result<Self, Self::Error> {
+        range.serialize(Serializer::new()).map_err(Into::into)
     }
 }
 

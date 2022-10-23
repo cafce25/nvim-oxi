@@ -2,7 +2,6 @@ use std::ops::RangeBounds;
 
 use nvim_types::{
     self as nvim,
-    conversion::FromObject,
     Array,
     Dictionary,
     Integer,
@@ -137,11 +136,11 @@ impl Buffer {
 
             let mut iter = tuple.into_iter();
             let row =
-                usize::from_object(iter.next().expect("row is present"))?;
+                usize::try_from(iter.next().expect("row is present"))?;
             let col =
-                usize::from_object(iter.next().expect("col is present"))?;
+                usize::try_from(iter.next().expect("col is present"))?;
             let infos =
-                iter.next().map(ExtmarkInfos::from_object).transpose()?;
+                iter.next().map(ExtmarkInfos::try_from).transpose()?;
             Ok((row, col, infos))
         })
     }
@@ -181,21 +180,21 @@ impl Buffer {
             Ok({
                 extmarks.into_iter().map(|tuple| {
                     let mut iter =
-                        Array::from_object(tuple).unwrap().into_iter();
+                        Array::try_from(tuple).unwrap().into_iter();
                     let id =
-                        u32::from_object(iter.next().expect("id is present"))
+                        u32::try_from(iter.next().expect("id is present"))
                             .unwrap();
-                    let row = usize::from_object(
+                    let row = usize::try_from(
                         iter.next().expect("row is present"),
                     )
                     .unwrap();
-                    let col = usize::from_object(
+                    let col = usize::try_from(
                         iter.next().expect("col is present"),
                     )
                     .unwrap();
                     let infos = iter
                         .next()
-                        .map(ExtmarkInfos::from_object)
+                        .map(ExtmarkInfos::try_from)
                         .transpose()
                         .unwrap();
                     (id, row, col, infos)
@@ -248,7 +247,7 @@ pub fn create_namespace(name: &str) -> u32 {
 pub fn get_namespaces() -> impl SuperIterator<(String, u32)> {
     unsafe { nvim_get_namespaces() }.into_iter().map(|(k, v)| {
         let k = k.try_into().expect("namespace name is valid UTF-8");
-        let v = u32::from_object(v).expect("namespace id is positive");
+        let v = u32::try_from(v).expect("namespace id is positive");
         (k, v)
     })
 }

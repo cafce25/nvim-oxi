@@ -1,6 +1,5 @@
 use nvim_types::{
     self as nvim,
-    conversion::FromObject,
     Array,
     Integer,
     Object,
@@ -141,7 +140,7 @@ pub fn get_autocmds(
         Ok({
             infos
                 .into_iter()
-                .map(|obj| AutocmdInfos::from_object(obj).unwrap())
+                .map(|obj| AutocmdInfos::try_from(obj).unwrap())
         })
     )
 }

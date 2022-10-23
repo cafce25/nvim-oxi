@@ -1,5 +1,5 @@
 use nvim_oxi::{self as oxi, api, lua, print, Dictionary, Function, Object};
-use oxi::conversion::{self, FromObject, ToObject};
+use oxi::conversion;
 use oxi::serde::{Deserializer, Serializer};
 use serde::{Deserialize, Serialize};
 
@@ -35,15 +35,17 @@ enum CarProblem {
     Pollutes,
 }
 
-impl FromObject for Car {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for Car {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }
 
-impl ToObject for Car {
-    fn to_object(self) -> Result<Object, conversion::Error> {
-        self.serialize(Serializer::new()).map_err(Into::into)
+impl TryFrom<Car> for Object {
+    type Error = conversion::Error;
+    fn try_from(car: Car) -> Result<Object, Self::Error> {
+        car.serialize(Serializer::new()).map_err(Into::into)
     }
 }
 
@@ -52,7 +54,7 @@ impl lua::Poppable for Car {
         lstate: *mut lua::ffi::lua_State,
     ) -> Result<Self, lua::Error> {
         let obj = Object::pop(lstate)?;
-        Self::from_object(obj)
+        Self::try_from(obj)
             .map_err(lua::Error::pop_error_from_err::<Self, _>)
     }
 }
@@ -62,7 +64,7 @@ impl lua::Pushable for Car {
         self,
         lstate: *mut lua::ffi::lua_State,
     ) -> Result<std::ffi::c_int, lua::Error> {
-        self.to_object()
+        Car::try_from(self)
             .map_err(lua::Error::push_error_from_err::<Self, _>)?
             .push(lstate)
     }

@@ -1,7 +1,6 @@
 use serde::ser::{self, Error};
 
 use super::Result;
-use crate::conversion::FromObject;
 use crate::Object;
 
 /// A struct for serializing Rust values into Neovim `Object`s.
@@ -256,7 +255,7 @@ impl ser::SerializeMap for SerializeMap {
         let a = key.serialize(Serializer)?;
         // TODO: don't unwrap
         self.key =
-            Some(crate::String::from_object(a).map_err(super::Error::custom)?);
+            Some(crate::String::try_from(a).map_err(super::Error::custom)?);
         Ok(())
     }
 

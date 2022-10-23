@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, FromObject},
+    conversion,
     serde::Deserializer,
     Object,
 };
@@ -27,8 +27,9 @@ pub struct HighlightInfos {
     pub underlineline: Option<bool>,
 }
 
-impl FromObject for HighlightInfos {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for HighlightInfos {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }

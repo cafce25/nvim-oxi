@@ -1,7 +1,7 @@
 use nvim_types::{
-    conversion::{self, FromObject},
+    conversion,
     serde::Deserializer,
-    Object,
+    Object, Dictionary,
 };
 use serde::Deserialize;
 
@@ -25,8 +25,9 @@ pub struct StatuslineInfos {
     pub width: u32,
 }
 
-impl FromObject for StatuslineInfos {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
-        Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
+impl TryFrom<Dictionary> for StatuslineInfos {
+    type Error = conversion::Error;
+    fn try_from(dict: Dictionary) -> Result<Self, Self::Error> {
+        Ok(Self::deserialize(Deserializer::new(Object::from(dict)))?)
     }
 }

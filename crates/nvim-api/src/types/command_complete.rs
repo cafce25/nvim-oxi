@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, ToObject},
+    conversion,
     serde::Serializer,
     Function,
     Object,
@@ -51,8 +51,9 @@ pub enum CommandComplete {
     CustomList(Function<(String, String, usize), Vec<String>>),
 }
 
-impl ToObject for CommandComplete {
-    fn to_object(self) -> Result<Object, conversion::Error> {
-        self.serialize(Serializer::new()).map_err(Into::into)
+impl TryFrom<CommandComplete> for Object {
+    type Error = conversion::Error;
+    fn try_from(complete: CommandComplete) -> Result<Object, Self::Error> {
+        complete.serialize(Serializer::new()).map_err(Into::into)
     }
 }

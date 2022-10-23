@@ -7,14 +7,7 @@ use lua::{ffi::*, Poppable, Pushable};
 use luajit_bindings as lua;
 
 use crate::{
-    Array,
-    Boolean,
-    Dictionary,
-    Float,
-    Function,
-    Integer,
-    LuaRef,
-    NonOwning,
+    Array, Boolean, Dictionary, Float, Function, Integer, LuaRef, NonOwning,
 };
 
 // https://github.com/neovim/neovim/blob/master/src/nvim/api/private/defs.h#L109
@@ -612,13 +605,12 @@ mod serde {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::conversion::FromObject;
 
     #[test]
     fn std_string_to_obj_and_back() {
         let str = String::from("foo");
         let obj = Object::from(str.clone());
-        let str_again = String::from_object(obj);
+        let str_again = String::try_from(obj);
         assert!(str_again.is_ok());
         assert_eq!(str, str_again.unwrap());
     }

@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, FromObject},
+    conversion,
     serde::Deserializer,
     Object,
 };
@@ -59,8 +59,9 @@ pub struct ExtmarkInfos {
     pub virt_text_win_col: Option<i64>,
 }
 
-impl FromObject for ExtmarkInfos {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for ExtmarkInfos {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }

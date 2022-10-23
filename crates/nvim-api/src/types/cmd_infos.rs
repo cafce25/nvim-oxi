@@ -1,6 +1,6 @@
 use derive_builder::Builder;
 use nvim_types::{
-    conversion::{self, FromObject, ToObject},
+    conversion,
     serde::Deserializer,
     Array,
     Object,
@@ -96,8 +96,9 @@ impl CmdInfosBuilder {
     }
 }
 
-impl FromObject for CmdInfos {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
+impl TryFrom<Object> for CmdInfos {
+    type Error = conversion::Error;
+    fn try_from(obj: Object) -> Result<Self, Self::Error> {
         Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
     }
 }
@@ -127,21 +128,21 @@ impl From<&CmdInfos> for KeyDict_cmd {
             bang: infos.bang.into(),
             addr: infos
                 .addr
-                .map(|v| v.to_object().unwrap())
+                .map(|v| v.try_into().unwrap())
                 .unwrap_or_default(),
             mods: infos
                 .mods
-                .map(|v| v.to_object().unwrap())
+                .map(|v| v.try_into().unwrap())
                 .unwrap_or_default(),
             args: Array::from_iter(infos.args.clone()).into(),
             count: infos.count.into(),
             magic: infos
                 .magic
-                .map(|v| v.to_object().unwrap())
+                .map(|v| v.try_into().unwrap())
                 .unwrap_or_default(),
             nargs: infos
                 .nargs
-                .map(|v| v.to_object().unwrap())
+                .map(|v| v.try_into().unwrap())
                 .unwrap_or_default(),
             range: infos.range.into(),
             nextcmd: infos.nextcmd.clone().into(),

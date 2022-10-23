@@ -1,8 +1,9 @@
-use nvim_types::{self as nvim, conversion::FromObject, Array, Object};
+use nvim_types::{self as nvim, Array, Object};
 
 use crate::choose;
 use crate::ffi::vimscript::*;
 use crate::types::*;
+use crate::Error;
 use crate::Result;
 use crate::LUA_INTERNAL_CALL;
 
@@ -17,7 +18,8 @@ pub fn call_dict_function<Args, Ret>(
 ) -> Result<Ret>
 where
     Args: Into<Array>,
-    Ret: FromObject,
+    Ret: TryFrom<Object>,
+    Error: From<Ret::Error>,
 {
     let dict = Object::from(nvim::String::from(dict));
     let func = nvim::String::from(func);
@@ -31,7 +33,7 @@ where
             &mut err,
         )
     };
-    choose!(err, Ok(Ret::from_object(res)?))
+    choose!(err, Ok(Ret::try_from(res)?))
 }
 
 /// Binding to [`nvim_call_function`](https://neovim.io/doc/user/api.html#nvim_call_function()).
@@ -41,7 +43,8 @@ where
 pub fn call_function<Args, Ret>(func: &str, args: Args) -> Result<Ret>
 where
     Args: Into<Array>,
-    Ret: FromObject,
+    Ret: TryFrom<Object>,
+    Error: From<Ret::Error>,
 {
     let func = nvim::String::from(func);
     let args = args.into();
@@ -49,7 +52,7 @@ where
     let res = unsafe {
         nvim_call_function(func.non_owning(), args.non_owning(), &mut err)
     };
-    choose!(err, Ok(Ret::from_object(res)?))
+    choose!(err, Ok(Ret::try_from(res)?))
 }
 
 /// Binding to [`nvim_cmd`](https://neovim.io/doc/user/api.html#nvim_cmd()).
@@ -93,12 +96,13 @@ pub fn command(command: &str) -> Result<()> {
 /// Evaluates a VimL expression.
 pub fn eval<V>(expr: &str) -> Result<V>
 where
-    V: FromObject,
+    V: TryFrom<Object>,
+    Error: From<V::Error>,
 {
     let expr = nvim::String::from(expr);
     let mut err = nvim::Error::new();
     let output = unsafe { nvim_eval(expr.non_owning(), &mut err) };
-    choose!(err, Ok(V::from_object(output)?))
+    choose!(err, Ok(V::try_from(output)?))
 }
 
 /// Binding to [`nvim_exec`](https://neovim.io/doc/user/api.html#nvim_exec()).
@@ -130,14 +134,17 @@ pub fn exec(src: &str, output: bool) -> Result<Option<String>> {
 pub fn parse_cmd(
     src: &str,
     opts: &super::opts::ParseCmdOpts,
-) -> Result<CmdInfos> {
+) -> Result<CmdInfos>
+where
+    Error: From<<CmdInfos as TryFrom<Object>>::Error>,
+{
     let src = nvim::String::from(src);
     let opts = nvim::Dictionary::from(opts);
     let mut err = nvim::Error::new();
     let dict = unsafe {
         nvim_parse_cmd(src.non_owning(), opts.non_owning(), &mut err)
     };
-    choose!(err, Ok(CmdInfos::from_object(dict.into())?))
+    choose!(err, Ok(CmdInfos::try_from(Object::from(dict))?))
 }
 
 /// Binding to [`nvim_parse_expression`](https://neovim.io/doc/user/api.html#nvim_parse_expression()).
@@ -159,5 +166,5 @@ pub fn parse_expression(
             &mut err,
         )
     };
-    choose!(err, Ok(ParsedVimLExpression::from_object(dict.into())?))
+    choose!(err, Ok(ParsedVimLExpression::try_from(Object::from(dict))?))
 }

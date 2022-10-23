@@ -1,5 +1,5 @@
 use nvim_types::{
-    conversion::{self, ToObject},
+    conversion,
     serde::Serializer,
     Object,
 };
@@ -20,8 +20,9 @@ pub enum CommandAddr {
     Other,
 }
 
-impl ToObject for CommandAddr {
-    fn to_object(self) -> Result<Object, conversion::Error> {
-        self.serialize(Serializer::new()).map_err(Into::into)
+impl TryFrom<CommandAddr> for Object {
+    type Error = conversion::Error;
+    fn try_from(addr: CommandAddr) -> Result<Object, Self::Error> {
+        addr.serialize(Serializer::new()).map_err(Into::into)
     }
 }

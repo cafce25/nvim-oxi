@@ -1,5 +1,4 @@
 use nvim_oxi as oxi;
-#[allow(unused_imports)]
 use nvim_oxi::api::{self, opts::*, types::*};
 
 #[oxi::test]

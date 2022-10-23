@@ -1,4 +1,4 @@
-use nvim_types::{self as nvim, conversion::FromObject, serde::Serializer};
+use nvim_types::{self as nvim, serde::Serializer};
 use serde::{ser, Serialize};
 
 #[non_exhaustive]
@@ -34,7 +34,7 @@ where
 
 impl From<RegisterType> for nvim::String {
     fn from(reg_type: RegisterType) -> Self {
-        nvim::String::from_object(
+        nvim::String::try_from(
             reg_type
                 .serialize(Serializer::new())
                 .expect("`RegisterType` is serializable"),

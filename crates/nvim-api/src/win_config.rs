@@ -1,4 +1,5 @@
-use nvim_types::{self as nvim, conversion::FromObject};
+use nvim::Object;
+use nvim_types as nvim;
 
 use crate::choose;
 use crate::ffi::win_config::*;
@@ -35,7 +36,7 @@ impl Window {
         if let Some(handle) = win {
             dict["relative"] = handle.into();
         }
-        choose!(err, Ok(WindowConfig::from_object(dict.into())?))
+        choose!(err, Ok(WindowConfig::try_from(Object::from(dict))?))
     }
 
     /// Binding to [`nvim_win_get_config`](https://neovim.io/doc/user/api.html#nvim_win_get_config()).

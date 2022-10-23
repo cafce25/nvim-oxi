@@ -1,8 +1,4 @@
-use nvim_types::{
-    conversion::{self, FromObject},
-    serde::Deserializer,
-    Object,
-};
+use nvim_types::{conversion, serde::Deserializer, Dictionary, Object};
 use serde::Deserialize;
 
 use super::Mode;
@@ -14,8 +10,10 @@ pub struct GotMode {
     pub mode: Mode,
 }
 
-impl FromObject for GotMode {
-    fn from_object(obj: Object) -> Result<Self, conversion::Error> {
-        Self::deserialize(Deserializer::new(obj)).map_err(Into::into)
+impl TryFrom<Dictionary> for GotMode {
+    type Error = conversion::Error;
+    fn try_from(dict: Dictionary) -> Result<Self, Self::Error> {
+        Self::deserialize(Deserializer::new(Object::from(dict)))
+            .map_err(Into::into)
     }
 }
